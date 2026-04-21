@@ -3,7 +3,9 @@ import ReactDOM from 'react-dom/client';
 import GolfScheduler from './GolfScheduler';
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
-root.render();
+root.render(
+  React.createElement(GolfScheduler, null)
+);
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
