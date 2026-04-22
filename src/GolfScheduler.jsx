@@ -115,7 +115,7 @@ function AppShell({ username, onLogout }) {
   const [currentYear, setCurrentYear] = useState(today.getFullYear());
   const [selectedDate, setSelectedDate] = useState(null);
   const [events, setEvents] = useState([]);
-  const [inbound, setInbound] = useState([]); // requests from other users
+  const [inbound, setInbound] = useState([]);
   const [form, setForm] = useState({
     mode: "specific",
     course: "",
@@ -129,6 +129,105 @@ function AppShell({ username, onLogout }) {
   const [notifPermission, setNotifPermission] = useState(
     typeof Notification !== "undefined" ? Notification.permission : "default"
   );
+  const [dbLoading, setDbLoading] = useState(true);
+
+  // ── Supabase helpers ─────────────────────────────────────
+  const SUPABASE_URL = process.env.REACT_APP_SUPABASE_URL;
+  const SUPABASE_KEY = process.env.REACT_APP_SUPABASE_ANON_KEY;
+  const VAPID_KEY    = process.env.REACT_APP_VAPID_PUBLIC_KEY;
+
+  function sbFetch(path, opts = {}) {
+    return fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+      ...opts,
+      headers: {
+        "apikey": SUPABASE_KEY,
+        "Authorization": `Bearer ${SUPABASE_KEY}`,
+        "Content-Type": "application/json",
+        "Prefer": opts.prefer || "",
+        ...(opts.headers || {}),
+      },
+    });
+  }
+
+  // ── Load all requests on mount, then poll every 10s ──────
+  useEffect(() => {
+    loadRequests();
+    const interval = setInterval(loadRequests, 10000);
+    return () => clearInterval(interval);
+  }, [username]);
+
+  async function loadRequests() {
+    try {
+      const res = await sbFetch("tee_requests?order=created_at.desc&limit=50");
+      if (!res.ok) return;
+      const rows = await res.json();
+      const mine = rows.filter(r => r.creator_name === username).map(dbRowToEvent);
+      const others = rows.filter(r => r.creator_name !== username).map(dbRowToEvent);
+      setEvents(mine);
+      setInbound(prev => {
+        // preserve seen/myStatus from previous state
+        return others.map(o => {
+          const existing = prev.find(p => p.id === o.id);
+          return existing ? { ...o, seen: existing.seen, myStatus: existing.myStatus } : o;
+        });
+      });
+    } catch (e) {
+      console.error("loadRequests error", e);
+    } finally {
+      setDbLoading(false);
+    }
+  }
+
+  function dbRowToEvent(row) {
+    return {
+      id: row.id,
+      from: row.creator_name,
+      mode: row.mode,
+      course: row.course,
+      time: row.tee_time ? row.tee_time.slice(0,5).replace(/^0/,"").replace(":",":")  : null,
+      timeWindow: row.time_window,
+      timeWindowLabel: row.time_window_label,
+      date: new Date(row.tee_date + "T12:00:00"),
+      maxDistance: row.max_distance_mi,
+      playersNeeded: row.players_needed,
+      seen: false,
+    };
+  }
+
+  function formatTimeForDb(timeStr) {
+    // "8:00 AM" -> "08:00:00"
+    if (!timeStr) return null;
+    const match = timeStr.match(/(\d+):(\d+)\s*(AM|PM)/i);
+    if (!match) return null;
+    let h = parseInt(match[1]);
+    const m = match[2];
+    const ap = match[3].toUpperCase();
+    if (ap === "PM" && h !== 12) h += 12;
+    if (ap === "AM" && h === 12) h = 0;
+    return `${String(h).padStart(2,"0")}:${m}:00`;
+  }
+
+  // ── Push subscription helpers ────────────────────────────
+  function urlBase64ToUint8Array(b64) {
+    const pad = "=".repeat((4 - b64.length % 4) % 4);
+    const base64 = (b64 + pad).replace(/-/g,"+").replace(/_/g,"/");
+    const raw = atob(base64);
+    return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
+  }
+
+  async function savePushSubscription(sub) {
+    const json = sub.toJSON();
+    await sbFetch("push_subscriptions", {
+      method: "POST",
+      prefer: "resolution=merge-duplicates",
+      body: JSON.stringify({
+        username,
+        endpoint: json.endpoint,
+        p256dh: json.keys.p256dh,
+        auth: json.keys.auth,
+      }),
+    });
+  }
 
   const showNotification = (msg) => {
     setNotification(msg);
@@ -139,7 +238,22 @@ function AppShell({ username, onLogout }) {
     if (typeof Notification === "undefined") return;
     const result = await Notification.requestPermission();
     setNotifPermission(result);
-    if (result === "granted") showNotification("Notifications enabled! 🔔");
+    if (result === "granted") {
+      showNotification("Notifications enabled! 🔔");
+      // Subscribe to push and save to Supabase
+      try {
+        if ("serviceWorker" in navigator && VAPID_KEY) {
+          const reg = await navigator.serviceWorker.ready;
+          const sub = await reg.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToUint8Array(VAPID_KEY),
+          });
+          await savePushSubscription(sub);
+        }
+      } catch (err) {
+        console.error("Push subscribe error:", err);
+      }
+    }
   }
 
   const daysInMonth = getDaysInMonth(currentYear, currentMonth);
@@ -178,7 +292,7 @@ function AppShell({ username, onLogout }) {
     setForm(f => ({ ...f, mode: "specific", course: "", customCourse: "", time: "8:00 AM", timeWindow: "anytime", coursePreference: "any", maxDistance: 25, playersNeeded: 1 }));
   };
 
-  const handleSendInvite = () => {
+  const handleSendInvite = async () => {
     if (form.mode === "specific" && !form.course && !form.customCourse) {
       showNotification("Please select a course"); return;
     }
@@ -192,21 +306,66 @@ function AppShell({ username, onLogout }) {
       after4pm: "After 4 PM",
       anytime: "Anytime",
     };
-    const newEvent = {
-      id: Date.now(),
-      from: username,
+    const twLabel = form.mode === "open" ? TIME_WINDOW_LABELS[form.timeWindow] : null;
+
+    // Format date as YYYY-MM-DD
+    const d = selectedDate;
+    const dateStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+
+    const dbRow = {
+      creator_name: username,
       mode: form.mode,
       course: courseName,
-      timeWindow: form.mode === "open" ? form.timeWindow : null,
-      timeWindowLabel: form.mode === "open" ? TIME_WINDOW_LABELS[form.timeWindow] : null,
-      date: selectedDate,
-      time: form.mode === "specific" ? form.time : null,
-      maxDistance: form.maxDistance,
-      playersNeeded: form.playersNeeded,
+      tee_date: dateStr,
+      tee_time: form.mode === "specific" ? formatTimeForDb(form.time) : null,
+      time_window: form.mode === "open" ? form.timeWindow : null,
+      time_window_label: twLabel,
+      max_distance_mi: form.mode === "open" ? form.maxDistance : null,
+      players_needed: form.playersNeeded,
     };
-    setEvents(ev => [...ev, newEvent]);
-    showNotification("All friends notified! ⛳");
-    setView("calendar");
+
+    try {
+      // Save to Supabase
+      const res = await sbFetch("tee_requests", {
+        method: "POST",
+        prefer: "return=representation",
+        body: JSON.stringify(dbRow),
+      });
+      const saved = await res.json();
+      const eventId = saved[0]?.id || Date.now();
+
+      // Add to local state immediately
+      const newEvent = {
+        id: eventId,
+        from: username,
+        mode: form.mode,
+        course: courseName,
+        timeWindow: form.mode === "open" ? form.timeWindow : null,
+        timeWindowLabel: twLabel,
+        date: selectedDate,
+        time: form.mode === "specific" ? form.time : null,
+        maxDistance: form.maxDistance,
+        playersNeeded: form.playersNeeded,
+      };
+      setEvents(ev => [newEvent, ...ev]);
+
+      // Fire push notifications to all other users
+      try {
+        await fetch("/api/notify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ event: newEvent, senderUsername: username }),
+        });
+      } catch (notifErr) {
+        console.warn("Notify failed (non-fatal):", notifErr);
+      }
+
+      showNotification("All friends notified! ⛳");
+      setView("calendar");
+    } catch (err) {
+      console.error("Save failed:", err);
+      showNotification("Failed to save — check connection");
+    }
   };
 
   const newActivityCount = inbound.filter(i => !i.seen).length;
