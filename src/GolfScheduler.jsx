@@ -3,87 +3,152 @@ import { useState, useEffect, useRef } from "react";
 import React from "react";
 
 const COURSES = [
-  "Sydney R. Marovitz (Waveland) — Lakefront",     // ~3 mi
-  "Columbus Park Golf Course — West Side",           // ~5 mi
-  "Jackson Park Golf Course — South Side",           // ~6 mi
-  "Billy Caldwell Golf Course — Northwest Side",     // ~7 mi
-  "Marquette Park Golf Course — South Side",         // ~8 mi
-  "Weber Park Golf Course — Skokie",                 // ~9 mi
-  "Chick Evans Golf Course — Morton Grove",          // ~12 mi
-  "Burnham Woods Golf Course — Burnham",             // ~14 mi
-  "Harborside International — Port Course",          // ~14 mi
-  "Harborside International — Starboard Course",     // ~14 mi
-  "The Glen Club — Glenview",                        // ~16 mi
-  "Arlington Lakes Golf Club — Arlington Heights",   // ~18 mi
-  "Preserve at Oak Meadows — Addison",               // ~18 mi
-  "Bloomingdale Golf Club — Bloomingdale",           // ~19 mi
-  "Indian Boundary Golf Course — Wheeling",          // ~21 mi
-  "Chevy Chase Golf Club — Wheeling",                // ~22 mi
-  "Bridges of Poplar Creek — Hoffman Estates",       // ~22 mi
-  "Palos Country Club — Palos Park",                 // ~22 mi
-  "Broken Arrow Golf Club — Lockport",               // ~24 mi
-  "Big Run Golf Club — Lockport",                    // ~24 mi
-  "Cantigny Golf — Woodside Nine, Wheaton",          // ~26 mi
-  "Cantigny Golf — Lakeside Nine, Wheaton",          // ~26 mi
-  "Cantigny Golf — Hillside Nine, Wheaton",          // ~26 mi
-  "Cog Hill No. 1 — Lemont",                         // ~27 mi
-  "Cog Hill No. 2 — Lemont",                         // ~27 mi
-  "Cog Hill No. 4 (Dubsdread) — Lemont",             // ~27 mi
-  "Bolingbrook Golf Club — Bolingbrook",             // ~28 mi
-  "Pine Meadow Golf Club — Mundelein",               // ~34 mi
-  "Orchard Valley Golf Club — Aurora",               // ~35 mi
-  "Bowes Creek Country Club — Elgin",                // ~36 mi
-  "Mistwood Golf Club — Romeoville",                 // ~37 mi
-  "Bittersweet Golf Club — Gurnee",                  // ~38 mi
-  "Bonnie Brook Golf Course — Waukegan",             // ~40 mi
+  "Sydney R. Marovitz (Waveland) — Lakefront",
+  "Columbus Park Golf Course — West Side",
+  "Jackson Park Golf Course — South Side",
+  "Billy Caldwell Golf Course — Northwest Side",
+  "Marquette Park Golf Course — South Side",
+  "Weber Park Golf Course — Skokie",
+  "Chick Evans Golf Course — Morton Grove",
+  "Burnham Woods Golf Course — Burnham",
+  "Harborside International — Port Course",
+  "Harborside International — Starboard Course",
+  "The Glen Club — Glenview",
+  "Arlington Lakes Golf Club — Arlington Heights",
+  "Preserve at Oak Meadows — Addison",
+  "Bloomingdale Golf Club — Bloomingdale",
+  "Indian Boundary Golf Course — Wheeling",
+  "Chevy Chase Golf Club — Wheeling",
+  "Bridges of Poplar Creek — Hoffman Estates",
+  "Palos Country Club — Palos Park",
+  "Broken Arrow Golf Club — Lockport",
+  "Big Run Golf Club — Lockport",
+  "Cantigny Golf — Woodside Nine, Wheaton",
+  "Cantigny Golf — Lakeside Nine, Wheaton",
+  "Cantigny Golf — Hillside Nine, Wheaton",
+  "Cog Hill No. 1 — Lemont",
+  "Cog Hill No. 2 — Lemont",
+  "Cog Hill No. 4 (Dubsdread) — Lemont",
+  "Bolingbrook Golf Club — Bolingbrook",
+  "Pine Meadow Golf Club — Mundelein",
+  "Orchard Valley Golf Club — Aurora",
+  "Bowes Creek Country Club — Elgin",
+  "Mistwood Golf Club — Romeoville",
+  "Bittersweet Golf Club — Gurnee",
+  "Bonnie Brook Golf Course — Waukegan",
   "Other (enter below)...",
 ];
 
 const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 
-function getDaysInMonth(year, month) {
-  return new Date(year, month + 1, 0).getDate();
-}
-function getFirstDay(year, month) {
-  return new Date(year, month, 1).getDay();
-}
+function getDaysInMonth(year, month) { return new Date(year, month + 1, 0).getDate(); }
+function getFirstDay(year, month) { return new Date(year, month, 1).getDay(); }
 
 const today = new Date();
 
+// ── Login Screen ──────────────────────────────────────────────
+function LoginScreen({ onLogin }) {
+  const [name, setName] = useState("");
+  const [error, setError] = useState("");
+
+  function handleSubmit() {
+    const trimmed = name.trim();
+    if (!trimmed) { setError("Please enter a name"); return; }
+    if (trimmed.length < 2) { setError("Name must be at least 2 characters"); return; }
+    onLogin(trimmed);
+  }
+
+  return (
+    <div style={{ minHeight: "100vh", background: "#0a0a0a", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "0 32px", maxWidth: 480, margin: "0 auto" }}>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap'); * { box-sizing: border-box; margin: 0; padding: 0; }`}</style>
+      <div style={{ fontSize: 64, marginBottom: 24 }}>⛳</div>
+      <div style={{ fontSize: 11, letterSpacing: 3, color: "#555", textTransform: "uppercase", fontFamily: "'DM Mono', monospace", marginBottom: 8 }}>Golf With Friends</div>
+      <div style={{ fontSize: 28, fontWeight: 600, color: "#f0f0f0", marginBottom: 8, fontFamily: "'DM Sans', sans-serif" }}>Welcome</div>
+      <div style={{ fontSize: 14, color: "#555", marginBottom: 40, textAlign: "center", lineHeight: 1.5, fontFamily: "'DM Sans', sans-serif" }}>Enter your name so your crew knows who's posting tee times</div>
+
+      <div style={{ width: "100%" }}>
+        <input
+          placeholder="Your name (e.g. Mike)"
+          value={name}
+          onChange={e => { setName(e.target.value); setError(""); }}
+          onKeyDown={e => e.key === "Enter" && handleSubmit()}
+          maxLength={24}
+          style={{ width: "100%", background: "#111", border: `1px solid ${error ? "#c96a6a" : "#2a2a2a"}`, borderRadius: 12, padding: "16px", color: "#f0f0f0", fontSize: 16, outline: "none", fontFamily: "'DM Sans', sans-serif", marginBottom: 8 }}
+          autoFocus
+        />
+        {error && <div style={{ fontSize: 12, color: "#c96a6a", marginBottom: 12, fontFamily: "'DM Sans', sans-serif" }}>{error}</div>}
+        <button
+          onClick={handleSubmit}
+          style={{ width: "100%", background: "#89c96a", color: "#0a0a0a", border: "none", borderRadius: 12, padding: "16px", fontSize: 16, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", marginTop: 4 }}>
+          Let's Play →
+        </button>
+      </div>
+
+      <div style={{ fontSize: 12, color: "#333", marginTop: 32, textAlign: "center", fontFamily: "'DM Sans', sans-serif", lineHeight: 1.6 }}>
+        Your name is saved on this device only.<br/>No account or password needed.
+      </div>
+    </div>
+  );
+}
+
 export default function GolfScheduler() {
-  const [view, setView] = useState("calendar"); // calendar | create | invite | inbox
+  // ── Username / login ──────────────────────────────────────
+  const [username, setUsername] = useState(() => {
+    try { return localStorage.getItem("gwf_username") || null; } catch { return null; }
+  });
+
+  function handleLogin(name) {
+    try { localStorage.setItem("gwf_username", name); } catch {}
+    setUsername(name);
+  }
+
+  // ── Show login if no username ─────────────────────────────
+  if (!username) return <LoginScreen onLogin={handleLogin} />;
+
+  return <AppShell username={username} onLogout={() => { try { localStorage.removeItem("gwf_username"); } catch {} setUsername(null); }} />;
+}
+
+function AppShell({ username, onLogout }) {
+  const [view, setView] = useState("calendar");
   const [currentMonth, setCurrentMonth] = useState(today.getMonth());
   const [currentYear, setCurrentYear] = useState(today.getFullYear());
   const [selectedDate, setSelectedDate] = useState(null);
-  const [invites, setInvites] = useState([]);
   const [events, setEvents] = useState([]);
+  const [inbound, setInbound] = useState([]); // requests from other users
   const [form, setForm] = useState({
-    mode: "specific", // "specific" | "open"
+    mode: "specific",
     course: "",
     customCourse: "",
     time: "8:00 AM",
-    timeWindow: "anytime", // for open mode: "morning", "afternoon", "after2pm", "after4pm", "anytime"
+    timeWindow: "anytime",
     maxDistance: 25,
     playersNeeded: 1,
   });
   const [notification, setNotification] = useState(null);
+  const [notifPermission, setNotifPermission] = useState(
+    typeof Notification !== "undefined" ? Notification.permission : "default"
+  );
 
   const showNotification = (msg) => {
     setNotification(msg);
     setTimeout(() => setNotification(null), 3000);
   };
 
+  async function requestNotifPermission() {
+    if (typeof Notification === "undefined") return;
+    const result = await Notification.requestPermission();
+    setNotifPermission(result);
+    if (result === "granted") showNotification("Notifications enabled! 🔔");
+  }
+
   const daysInMonth = getDaysInMonth(currentYear, currentMonth);
   const firstDay = getFirstDay(currentYear, currentMonth);
 
-  // Calendar start: if viewing current month, skip weeks before this week
   const isCurrentMonthView = currentMonth === today.getMonth() && currentYear === today.getFullYear();
-  const todayDow = today.getDay(); // 0=Sun..6=Sat
+  const todayDow = today.getDay();
   const todayDate = today.getDate();
-  // First day of the week containing today (Sunday)
   const weekStartDate = todayDate - todayDow;
-  // How many cells to skip at start of grid when in current month view
   const gridStartDay = isCurrentMonthView ? Math.max(1, weekStartDate) : 1;
   const gridStartOffset = isCurrentMonthView ? ((gridStartDay - 1 + firstDay) % 7) : firstDay;
 
@@ -96,19 +161,15 @@ export default function GolfScheduler() {
     else setCurrentMonth(m => m + 1);
   };
 
-  const getEventsForDay = (day) => {
-    return events.filter(e => {
-      const d = new Date(e.date);
-      return d.getDate() === day && d.getMonth() === currentMonth && d.getFullYear() === currentYear;
-    });
-  };
+  const getEventsForDay = (day) => events.filter(e => {
+    const d = new Date(e.date);
+    return d.getDate() === day && d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+  });
 
-  const hasInviteOnDay = (day) => {
-    return invites.some(inv => {
-      const d = new Date(inv.date);
-      return d.getDate() === day && d.getMonth() === currentMonth && d.getFullYear() === currentYear;
-    });
-  };
+  const hasInboundOnDay = (day) => inbound.some(inv => {
+    const d = new Date(inv.date);
+    return d.getDate() === day && d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+  });
 
   const handleDayClick = (day) => {
     const d = new Date(currentYear, currentMonth, day);
@@ -133,6 +194,7 @@ export default function GolfScheduler() {
     };
     const newEvent = {
       id: Date.now(),
+      from: username,
       mode: form.mode,
       course: courseName,
       timeWindow: form.mode === "open" ? form.timeWindow : null,
@@ -147,67 +209,37 @@ export default function GolfScheduler() {
     setView("calendar");
   };
 
+  const newActivityCount = inbound.filter(i => !i.seen).length;
 
-
-  const deleteEvent = (id) => {
-    setEvents(ev => ev.filter(e => e.id !== id));
-    showNotification("Request deleted.");
-  };
-
-  const pendingInvites = events; // badge shows count of your active sent requests
-
+  // ── Weather ───────────────────────────────────────────────
   const [weather, setWeather] = useState(null);
   const [dailyForecast, setDailyForecast] = useState({});
 
   useEffect(() => {
-    // wttr.in — no auth, CORS-open, returns structured JSON including 3-day forecast
     fetch("https://wttr.in/Chicago?format=j1")
       .then(r => { if (!r.ok) throw new Error(); return r.json(); })
       .then(data => {
         const cur = data.current_condition[0];
-        const tempF = parseInt(cur.temp_F);
-        const feelsF = parseInt(cur.FeelsLikeF);
-        const windMph = parseInt(cur.windspeedMiles);
-        const windDeg = parseInt(cur.winddirDegree);
-        const precip = parseInt(cur.humidity); // wttr doesn't have current precip%, use humidity as proxy
         const desc = cur.weatherDesc[0]?.value || "";
-        // Map wttr description to WMO-like code
         const wmoCode = desc.toLowerCase().includes("thunder") ? 95
           : desc.toLowerCase().includes("snow") ? 71
           : desc.toLowerCase().includes("rain") || desc.toLowerCase().includes("drizzle") ? 61
           : desc.toLowerCase().includes("overcast") || desc.toLowerCase().includes("cloudy") ? 3
           : desc.toLowerCase().includes("partly") ? 2
-          : desc.toLowerCase().includes("fog") ? 45
-          : 0;
-
-        setWeather({ temp: tempF, feelsLike: feelsF, wind: windMph, windDir: windDeg, precipChance: precip, code: wmoCode, desc });
-
-        // Build daily forecast from wttr's weather array (up to 3 days)
+          : desc.toLowerCase().includes("fog") ? 45 : 0;
+        setWeather({ temp: parseInt(cur.temp_F), feelsLike: parseInt(cur.FeelsLikeF), wind: parseInt(cur.windspeedMiles), windDir: parseInt(cur.winddirDegree), precipChance: parseInt(cur.humidity), code: wmoCode, desc });
         const daily = {};
         (data.weather || []).forEach(day => {
-          // date format: "2025-03-01"
-          const dateStr = day.date;
-          const high = parseInt(day.maxtempF);
-          const low = parseInt(day.mintempF);
-          // avg wind from hourly
           const hours = day.hourly || [];
-          const avgWind = hours.length
-            ? Math.round(hours.reduce((s, h) => s + parseInt(h.windspeedMiles), 0) / hours.length)
-            : 10;
-          const maxPrecip = Math.max(...hours.map(h => parseInt(h.chanceofrain || 0)));
+          const avgWind = hours.length ? Math.round(hours.reduce((s,h) => s+parseInt(h.windspeedMiles),0)/hours.length) : 10;
+          const maxPrecip = Math.max(...hours.map(h => parseInt(h.chanceofrain||0)));
           const dayDesc = day.hourly?.[4]?.weatherDesc?.[0]?.value || "";
-          const dayCode = dayDesc.toLowerCase().includes("thunder") ? 95
-            : dayDesc.toLowerCase().includes("snow") ? 71
-            : dayDesc.toLowerCase().includes("rain") || dayDesc.toLowerCase().includes("drizzle") ? 61
-            : dayDesc.toLowerCase().includes("overcast") || dayDesc.toLowerCase().includes("cloudy") ? 3
-            : dayDesc.toLowerCase().includes("partly") ? 2
-            : 0;
-          daily[dateStr] = { high, low, wind: avgWind, code: dayCode, precipChance: maxPrecip };
+          const dayCode = dayDesc.toLowerCase().includes("thunder") ? 95 : dayDesc.toLowerCase().includes("snow") ? 71 : dayDesc.toLowerCase().includes("rain") || dayDesc.toLowerCase().includes("drizzle") ? 61 : dayDesc.toLowerCase().includes("overcast") || dayDesc.toLowerCase().includes("cloudy") ? 3 : dayDesc.toLowerCase().includes("partly") ? 2 : 0;
+          daily[day.date] = { high: parseInt(day.maxtempF), low: parseInt(day.mintempF), wind: avgWind, code: dayCode, precipChance: maxPrecip };
         });
         setDailyForecast(daily);
       })
       .catch(() => {
-        // Fallback: seeded realistic Chicago weather so UI always shows something
         const monthHighs = [34,38,48,60,70,80,84,82,74,62,49,37];
         const monthLows  = [20,23,32,42,52,62,67,65,57,46,35,24];
         const m = today.getMonth();
@@ -217,41 +249,31 @@ export default function GolfScheduler() {
           const d = new Date(today); d.setDate(today.getDate()+i);
           const seed = d.getFullYear()*10000+(d.getMonth()+1)*100+d.getDate();
           const high = Math.round(monthHighs[m]+(sr(seed)-0.5)*16);
-          const low  = Math.round(monthLows[m]+(sr(seed+7)-0.5)*10);
           const wind = Math.round(5+sr(seed+13)*22);
           const precip = Math.round(sr(seed+19)*75);
           const code = precip>60?61:precip>40?80:precip>20?3:sr(seed+3)>0.5?1:0;
           const mm = String(d.getMonth()+1).padStart(2,"0");
           const dd = String(d.getDate()).padStart(2,"0");
-          daily[`${d.getFullYear()}-${mm}-${dd}`] = { high, low, wind, code, precipChance: precip };
+          daily[`${d.getFullYear()}-${mm}-${dd}`] = { high, low: Math.round(monthLows[m]+(sr(seed+7)-0.5)*10), wind, code, precipChance: precip };
           if (i===0) setWeather({ temp: high, feelsLike: high-3, wind, windDir: Math.round(sr(seed+5)*360), precipChance: precip, code });
         }
         setDailyForecast(daily);
       });
   }, []);
 
+  const inputStyle = { width: "100%", background: "#111", border: "1px solid #1e1e1e", borderRadius: 10, padding: "12px 14px", color: "#e8e8e8", fontSize: 14, outline: "none" };
+  const selectStyle = { ...inputStyle, appearance: "none", cursor: "pointer" };
+
   return (
-    <div style={{
-      minHeight: "100vh",
-      background: "#0a0a0a",
-      color: "#e8e8e8",
-      fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif",
-      display: "flex",
-      flexDirection: "column",
-      maxWidth: 480,
-      margin: "0 auto",
-      position: "relative",
-    }}>
+    <div style={{ minHeight: "100vh", background: "#0a0a0a", color: "#e8e8e8", fontFamily: "'DM Sans', 'Helvetica Neue', sans-serif", display: "flex", flexDirection: "column", maxWidth: 480, margin: "0 auto", position: "relative" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap');
         * { box-sizing: border-box; margin: 0; padding: 0; }
         ::-webkit-scrollbar { display: none; }
-        input, select, textarea { font-family: 'DM Sans', sans-serif; }
-        .day-cell:hover { background: #1a1a1a !important; cursor: pointer; }
-        .btn-primary { transition: all 0.15s ease; }
+        input, select { font-family: 'DM Sans', sans-serif; }
+        .day-cell:hover { background: #1a1a1a !important; }
         .btn-primary:hover { background: #7aba6a !important; transform: translateY(-1px); }
         .tab-btn:hover { color: #e8e8e8 !important; }
-        .respond-btn:hover { opacity: 0.85; transform: scale(0.98); }
         @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         .slide-up { animation: slideUp 0.3s ease forwards; }
@@ -264,7 +286,7 @@ export default function GolfScheduler() {
         <div>
           <div style={{ fontSize: 11, letterSpacing: 3, color: "#555", textTransform: "uppercase", fontFamily: "'DM Mono', monospace" }}>Golf With Friends</div>
           <div style={{ fontSize: 22, fontWeight: 600, color: "#f0f0f0", marginTop: 2 }}>
-            {view === "calendar" ? "Schedule" : view === "create" ? "New Round" : view === "inbox" ? "My Requests" : ""}
+            {view === "calendar" ? `Hey, ${username} 👋` : view === "create" ? "New Round" : view === "activity" ? "Activity" : "My Requests"}
           </div>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
@@ -272,74 +294,46 @@ export default function GolfScheduler() {
             <button onClick={() => setView("calendar")} style={{ background: "#1a1a1a", border: "none", color: "#aaa", padding: "8px 14px", borderRadius: 8, cursor: "pointer", fontSize: 13 }}>← Back</button>
           )}
           {view === "calendar" && (
-            <button onClick={() => setView("inbox")} style={{ background: "#1a1a1a", border: "none", color: pendingInvites.length > 0 ? "#89c96a" : "#aaa", padding: "8px 14px", borderRadius: 8, cursor: "pointer", fontSize: 13, position: "relative" }}>
-              Requests {events.length > 0 && <span style={{ background: "#89c96a", color: "#0a0a0a", borderRadius: "50%", fontSize: 10, fontWeight: 700, padding: "1px 5px", marginLeft: 4 }}>{events.length}</span>}
-            </button>
+            <button onClick={onLogout} style={{ background: "none", border: "none", color: "#333", padding: "8px", borderRadius: 8, cursor: "pointer", fontSize: 12, fontFamily: "'DM Mono', monospace" }}>logout</button>
           )}
         </div>
       </div>
 
-      {/* Notification toast */}
+      {/* Toast notification */}
       {notification && (
         <div className="notif" style={{ position: "fixed", top: 20, left: "50%", transform: "translateX(-50%)", background: "#89c96a", color: "#0a0a0a", padding: "10px 20px", borderRadius: 10, fontWeight: 600, fontSize: 14, zIndex: 999, whiteSpace: "nowrap" }}>
           {notification}
         </div>
       )}
 
-      {/* CALENDAR VIEW */}
+      {/* ── CALENDAR VIEW ── */}
       {view === "calendar" && (
         <div className="slide-up" style={{ padding: "16px 24px 100px" }}>
-          {/* Month nav */}
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, marginTop: 8 }}>
             <button onClick={prevMonth} style={{ background: "none", border: "none", color: "#666", cursor: "pointer", fontSize: 18, padding: "4px 8px" }}>‹</button>
             <span style={{ fontWeight: 500, fontSize: 15, letterSpacing: 0.5 }}>{MONTHS[currentMonth]} {currentYear}</span>
             <button onClick={nextMonth} style={{ background: "none", border: "none", color: "#666", cursor: "pointer", fontSize: 18, padding: "4px 8px" }}>›</button>
           </div>
 
-          {/* Day headers */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", marginBottom: 6 }}>
-            {DAYS.map(d => (
-              <div key={d} style={{ textAlign: "center", fontSize: 10, color: "#444", fontFamily: "'DM Mono', monospace", letterSpacing: 1, padding: "4px 0" }}>{d}</div>
-            ))}
+            {DAYS.map(d => <div key={d} style={{ textAlign: "center", fontSize: 10, color: "#444", fontFamily: "'DM Mono', monospace", letterSpacing: 1, padding: "4px 0" }}>{d}</div>)}
           </div>
 
-          {/* Calendar grid */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 3 }}>
-            {/* Leading offset for the week containing gridStartDay */}
-            {Array.from({ length: gridStartOffset }).map((_, i) => <div key={`empty-${i}`} />)}
+            {Array.from({ length: gridStartOffset }).map((_, i) => <div key={`e-${i}`} />)}
             {Array.from({ length: daysInMonth - gridStartDay + 1 }).map((_, i) => {
               const day = gridStartDay + i;
               const isToday = day === today.getDate() && currentMonth === today.getMonth() && currentYear === today.getFullYear();
               const dayEvents = getEventsForDay(day);
-              const hasInvite = hasInviteOnDay(day);
-              // In current month view, grey out earlier days in the same week (before today)
+              const hasInbound = hasInboundOnDay(day);
               const isThisWeekPast = isCurrentMonthView && day >= weekStartDate && day < todayDate;
               const isActuallyPast = new Date(currentYear, currentMonth, day) < new Date(today.getFullYear(), today.getMonth(), today.getDate());
-              const mm = String(currentMonth + 1).padStart(2, "0");
-              const dd = String(day).padStart(2, "0");
-              const dateKey = `${currentYear}-${mm}-${dd}`;
-              const forecast = dailyForecast[dateKey];
+              const mm = String(currentMonth+1).padStart(2,"0");
+              const dd = String(day).padStart(2,"0");
+              const forecast = dailyForecast[`${currentYear}-${mm}-${dd}`];
               return (
-                <div
-                  key={day}
-                  className={isActuallyPast && !isThisWeekPast ? "" : "day-cell"}
-                  onClick={() => !isActuallyPast && handleDayClick(day)}
-                  style={{
-                    aspectRatio: "1",
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    justifyContent: "flex-start",
-                    paddingTop: 5,
-                    borderRadius: 8,
-                    background: isToday ? "#1c2e18" : isThisWeekPast ? "#0d0d0d" : "#111",
-                    border: isToday ? "1px solid #89c96a" : "1px solid transparent",
-                    cursor: isActuallyPast ? "default" : "pointer",
-                    position: "relative",
-                    opacity: isThisWeekPast ? 0.2 : isActuallyPast ? 0.35 : 1,
-                    overflow: "hidden",
-                  }}
-                >
+                <div key={day} className={!isActuallyPast ? "day-cell" : ""} onClick={() => !isActuallyPast && handleDayClick(day)}
+                  style={{ aspectRatio: "1", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-start", paddingTop: 5, borderRadius: 8, background: isToday ? "#1c2e18" : isThisWeekPast ? "#0d0d0d" : "#111", border: isToday ? "1px solid #89c96a" : "1px solid transparent", cursor: isActuallyPast ? "default" : "pointer", position: "relative", opacity: isThisWeekPast ? 0.2 : isActuallyPast ? 0.35 : 1, overflow: "hidden" }}>
                   <span style={{ fontSize: 11, fontWeight: isToday ? 600 : 400, color: isToday ? "#89c96a" : "#bbb", lineHeight: 1 }}>{day}</span>
                   {forecast && !isActuallyPast && (
                     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 1, marginTop: 2 }}>
@@ -348,10 +342,10 @@ export default function GolfScheduler() {
                       <span style={{ fontSize: 7, color: forecast.wind >= 20 ? "#c96a6a" : forecast.wind >= 12 ? "#c9a96a" : "#3a5a3a", fontFamily: "'DM Mono', monospace", lineHeight: 1 }}>{forecast.wind}mph</span>
                     </div>
                   )}
-                  {(dayEvents.length > 0 || hasInvite) && (
+                  {(dayEvents.length > 0 || hasInbound) && (
                     <div style={{ display: "flex", gap: 2, position: "absolute", bottom: 3 }}>
                       {dayEvents.map((_, ei) => <div key={ei} style={{ width: 3, height: 3, borderRadius: "50%", background: "#89c96a" }} />)}
-                      {hasInvite && <div style={{ width: 3, height: 3, borderRadius: "50%", background: "#6a9cc9" }} />}
+                      {hasInbound && <div style={{ width: 3, height: 3, borderRadius: "50%", background: "#6a9cc9" }} />}
                     </div>
                   )}
                 </div>
@@ -359,38 +353,19 @@ export default function GolfScheduler() {
             })}
           </div>
 
-          {/* Weather Widget */}
           <WeatherWidget weather={weather} loading={!weather} />
 
-          {/* Legend */}
           <div style={{ display: "flex", flexWrap: "wrap", gap: "5px 12px", marginTop: 12, paddingLeft: 2 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10, color: "#555" }}>
-              <div style={{ width: 5, height: 5, borderRadius: "50%", background: "#89c96a" }} /> Your rounds
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10, color: "#555" }}>
-              <div style={{ width: 5, height: 5, borderRadius: "50%", background: "#6a9cc9" }} /> Invited
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10, color: "#3a5a3a" }}>
-              <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 8 }}>mph</span> calm wind
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10, color: "#c9a96a" }}>
-              <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 8 }}>mph</span> breezy 12+
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10, color: "#c96a6a" }}>
-              <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 8 }}>mph</span> windy 20+
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10, color: "#3a5a6a" }}>
-              <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 8 }}>%</span> low rain
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10, color: "#6a9cc9" }}>
-              <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 8 }}>%</span> rain 50%+
-            </div>
+            {[["#89c96a","Your rounds"],["#6a9cc9","Friends"],["#3a5a3a","calm wind"],["#c9a96a","breezy 12+"],["#c96a6a","windy 20+"],["#3a5a6a","low rain"],["#6a9cc9","rain 50%+"]].map(([color,label]) => (
+              <div key={label} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10, color }}>
+                <div style={{ width: 5, height: 5, borderRadius: "50%", background: color }} />{label}
+              </div>
+            ))}
           </div>
 
-          {/* Upcoming events */}
           {events.length > 0 && (
             <div style={{ marginTop: 24 }}>
-              <div style={{ fontSize: 11, letterSpacing: 2, color: "#444", textTransform: "uppercase", fontFamily: "'DM Mono', monospace", marginBottom: 10 }}>Upcoming</div>
+              <div style={{ fontSize: 11, letterSpacing: 2, color: "#444", textTransform: "uppercase", fontFamily: "'DM Mono', monospace", marginBottom: 10 }}>Your Upcoming Rounds</div>
               {events.slice().reverse().map(ev => (
                 <div key={ev.id} style={{ background: "#111", border: "1px solid #1e1e1e", borderRadius: 10, padding: "12px 14px", marginBottom: 8 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
@@ -402,8 +377,7 @@ export default function GolfScheduler() {
                         {new Date(ev.date).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
                         {ev.mode === "specific" ? ` · ${ev.time}` : ` · ${ev.timeWindowLabel}`}
                       </div>
-                      {ev.mode === "open" && <div style={{ fontSize: 11, color: "#555", marginTop: 3 }}>📍 within {ev.maxDistance} mi · 👥 {ev.playersNeeded} players</div>}
-                      {ev.mode === "specific" && <div style={{ fontSize: 11, color: "#555", marginTop: 3 }}>👥 {ev.playersNeeded} players needed</div>}
+                      <div style={{ fontSize: 11, color: "#555", marginTop: 3 }}>👥 +{ev.playersNeeded} needed</div>
                     </div>
                     <div style={{ flexShrink: 0 }}>
                       <div style={{ fontSize: 10, fontFamily: "'DM Mono', monospace", background: "#1c2e18", border: "1px solid #89c96a33", borderRadius: 6, padding: "3px 8px", color: "#89c96a" }}>sent</div>
@@ -413,16 +387,13 @@ export default function GolfScheduler() {
               ))}
             </div>
           )}
-
           <div style={{ marginTop: 16, fontSize: 12, color: "#333", textAlign: "center" }}>Tap any upcoming date to schedule a round</div>
         </div>
       )}
 
-      {/* CREATE INVITE VIEW */}
+      {/* ── CREATE VIEW ── */}
       {view === "create" && selectedDate && (
         <div className="slide-up" style={{ padding: "16px 24px 100px", overflowY: "auto" }}>
-
-          {/* Date header */}
           <div style={{ background: "#111", border: "1px solid #1e1e1e", borderRadius: 12, padding: "12px 16px", marginBottom: 20, display: "flex", alignItems: "center", gap: 10 }}>
             <div style={{ fontSize: 24 }}>📅</div>
             <div>
@@ -431,37 +402,17 @@ export default function GolfScheduler() {
             </div>
           </div>
 
-          {/* Mode toggle */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 4 }}>
-            <button
-              onClick={() => setForm(f => ({ ...f, mode: "specific" }))}
-              style={{
-                background: form.mode === "specific" ? "#1c2e18" : "#111",
-                border: `1px solid ${form.mode === "specific" ? "#89c96a" : "#1e1e1e"}`,
-                borderRadius: 12, padding: "14px 10px", cursor: "pointer",
-                textAlign: "left", transition: "all 0.15s",
-              }}
-            >
-              <div style={{ fontSize: 18, marginBottom: 5 }}>🎯</div>
-              <div style={{ fontSize: 13, fontWeight: 600, color: form.mode === "specific" ? "#89c96a" : "#bbb" }}>Specific Round</div>
-              <div style={{ fontSize: 11, color: "#555", marginTop: 3, lineHeight: 1.4 }}>Exact course, date & tee time</div>
-            </button>
-            <button
-              onClick={() => setForm(f => ({ ...f, mode: "open" }))}
-              style={{
-                background: form.mode === "open" ? "#1c2e18" : "#111",
-                border: `1px solid ${form.mode === "open" ? "#89c96a" : "#1e1e1e"}`,
-                borderRadius: 12, padding: "14px 10px", cursor: "pointer",
-                textAlign: "left", transition: "all 0.15s",
-              }}
-            >
-              <div style={{ fontSize: 18, marginBottom: 5 }}>🕐</div>
-              <div style={{ fontSize: 13, fontWeight: 600, color: form.mode === "open" ? "#89c96a" : "#bbb" }}>Open Invite</div>
-              <div style={{ fontSize: 11, color: "#555", marginTop: 3, lineHeight: 1.4 }}>Flexible time, any course</div>
-            </button>
+            {[{id:"specific",icon:"🎯",title:"Specific Round",sub:"Exact course, date & tee time"},{id:"open",icon:"🕐",title:"Open Invite",sub:"Flexible time, any course"}].map(opt => (
+              <button key={opt.id} onClick={() => setForm(f => ({ ...f, mode: opt.id }))}
+                style={{ background: form.mode === opt.id ? "#1c2e18" : "#111", border: `1px solid ${form.mode === opt.id ? "#89c96a" : "#1e1e1e"}`, borderRadius: 12, padding: "14px 10px", cursor: "pointer", textAlign: "left" }}>
+                <div style={{ fontSize: 18, marginBottom: 5 }}>{opt.icon}</div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: form.mode === opt.id ? "#89c96a" : "#bbb" }}>{opt.title}</div>
+                <div style={{ fontSize: 11, color: "#555", marginTop: 3, lineHeight: 1.4 }}>{opt.sub}</div>
+              </button>
+            ))}
           </div>
 
-          {/* ── SPECIFIC MODE ── */}
           {form.mode === "specific" && (<>
             <Label>Course</Label>
             <select value={form.course} onChange={e => setForm(f => ({ ...f, course: e.target.value }))} style={selectStyle}>
@@ -472,24 +423,16 @@ export default function GolfScheduler() {
             {form.course === "Other (enter below)..." && (
               <input placeholder="Enter course name" value={form.customCourse} onChange={e => setForm(f => ({ ...f, customCourse: e.target.value }))} style={{ ...inputStyle, marginTop: 8 }} />
             )}
-
             <Label>Tee Time</Label>
             <TeePicker time={form.time} onChange={t => setForm(f => ({ ...f, time: t }))} />
           </>)}
 
-          {/* ── OPEN MODE ── */}
           {form.mode === "open" && (<>
             <Label>Time Preference</Label>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {[
-                { id: "morning",   label: "Morning",    sub: "Before noon",   icon: "🌅" },
-                { id: "afternoon", label: "Afternoon",  sub: "12 PM – 4 PM",  icon: "☀️" },
-                { id: "after2pm",  label: "After 2 PM", sub: "2 PM or later", icon: "🕑" },
-                { id: "after4pm",  label: "After 4 PM", sub: "4 PM or later", icon: "🌇" },
-                { id: "anytime",   label: "Anytime",    sub: "No preference", icon: "🔓" },
-              ].map(opt => (
+              {[{id:"morning",label:"Morning",sub:"Before noon",icon:"🌅"},{id:"afternoon",label:"Afternoon",sub:"12 PM – 4 PM",icon:"☀️"},{id:"after2pm",label:"After 2 PM",sub:"2 PM or later",icon:"🕑"},{id:"after4pm",label:"After 4 PM",sub:"4 PM or later",icon:"🌇"},{id:"anytime",label:"Anytime",sub:"No preference",icon:"🔓"}].map(opt => (
                 <button key={opt.id} onClick={() => setForm(f => ({ ...f, timeWindow: opt.id }))}
-                  style={{ display: "flex", alignItems: "center", gap: 12, background: form.timeWindow === opt.id ? "#1c2e18" : "#111", border: `1px solid ${form.timeWindow === opt.id ? "#89c96a" : "#1e1e1e"}`, borderRadius: 10, padding: "11px 14px", cursor: "pointer", textAlign: "left", transition: "all 0.15s" }}>
+                  style={{ display: "flex", alignItems: "center", gap: 12, background: form.timeWindow === opt.id ? "#1c2e18" : "#111", border: `1px solid ${form.timeWindow === opt.id ? "#89c96a" : "#1e1e1e"}`, borderRadius: 10, padding: "11px 14px", cursor: "pointer", textAlign: "left" }}>
                   <span style={{ fontSize: 20 }}>{opt.icon}</span>
                   <div>
                     <div style={{ fontSize: 13, fontWeight: 500, color: form.timeWindow === opt.id ? "#89c96a" : "#ccc" }}>{opt.label}</div>
@@ -499,28 +442,6 @@ export default function GolfScheduler() {
                 </button>
               ))}
             </div>
-
-            <Label>Course Preference</Label>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {[
-                { id: "any",      label: "Any course",         sub: "Within distance limit",  icon: "🗺️" },
-                { id: "suggest",  label: "Open to suggestions", sub: "Friends can propose",    icon: "💬" },
-              ].map(opt => (
-                <button key={opt.id} onClick={() => setForm(f => ({ ...f, coursePreference: opt.id }))}
-                  style={{ display: "flex", alignItems: "center", gap: 12, background: (form.coursePreference || "any") === opt.id ? "#1c2e18" : "#111", border: `1px solid ${(form.coursePreference || "any") === opt.id ? "#89c96a" : "#1e1e1e"}`, borderRadius: 10, padding: "11px 14px", cursor: "pointer", textAlign: "left", transition: "all 0.15s" }}>
-                  <span style={{ fontSize: 20 }}>{opt.icon}</span>
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 500, color: (form.coursePreference || "any") === opt.id ? "#89c96a" : "#ccc" }}>{opt.label}</div>
-                    <div style={{ fontSize: 11, color: "#555", marginTop: 1 }}>{opt.sub}</div>
-                  </div>
-                  {(form.coursePreference || "any") === opt.id && <span style={{ marginLeft: "auto", color: "#89c96a", fontSize: 14 }}>✓</span>}
-                </button>
-              ))}
-            </div>
-          </>)}
-
-          {/* ── SHARED: Distance (open only) + Players ── */}
-          {form.mode === "open" && (<>
             <Label>Max Distance from Home</Label>
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
               <input type="range" min={5} max={100} step={5} value={form.maxDistance} onChange={e => setForm(f => ({ ...f, maxDistance: Number(e.target.value) }))} style={{ flex: 1, accentColor: "#89c96a" }} />
@@ -529,23 +450,109 @@ export default function GolfScheduler() {
           </>)}
 
           <Label>Players Needed</Label>
-          <div style={{ fontSize: 11, color: "#444", marginBottom: 8 }}>How many more do you need? (you're already in)</div>
+          <div style={{ fontSize: 11, color: "#444", marginBottom: 8 }}>How many more do you need?</div>
           <div style={{ display: "flex", gap: 8 }}>
-            {[1, 2, 3].map(n => (
-              <button key={n} onClick={() => setForm(f => ({ ...f, playersNeeded: n }))} style={{ flex: 1, background: form.playersNeeded === n ? "#1c2e18" : "#111", border: `1px solid ${form.playersNeeded === n ? "#89c96a" : "#1e1e1e"}`, color: form.playersNeeded === n ? "#89c96a" : "#777", padding: "10px", borderRadius: 8, cursor: "pointer", fontSize: 13, fontWeight: 500 }}>
+            {[1,2,3].map(n => (
+              <button key={n} onClick={() => setForm(f => ({ ...f, playersNeeded: n }))}
+                style={{ flex: 1, background: form.playersNeeded === n ? "#1c2e18" : "#111", border: `1px solid ${form.playersNeeded === n ? "#89c96a" : "#1e1e1e"}`, color: form.playersNeeded === n ? "#89c96a" : "#777", padding: "10px", borderRadius: 8, cursor: "pointer", fontSize: 13, fontWeight: 500 }}>
                 +{n}
               </button>
             ))}
           </div>
 
-          <button className="btn-primary" onClick={handleSendInvite} style={{ width: "100%", marginTop: 24, background: "#89c96a", color: "#0a0a0a", border: "none", borderRadius: 12, padding: "16px", fontSize: 15, fontWeight: 700, cursor: "pointer", letterSpacing: 0.3 }}>
+          <button className="btn-primary" onClick={handleSendInvite} style={{ width: "100%", marginTop: 24, background: "#89c96a", color: "#0a0a0a", border: "none", borderRadius: 12, padding: "16px", fontSize: 15, fontWeight: 700, cursor: "pointer" }}>
             Notify All Friends ⛳
           </button>
         </div>
       )}
 
-      {/* INBOX VIEW — shows your sent requests */}
-      {view === "inbox" && (
+      {/* ── ACTIVITY VIEW ── */}
+      {view === "activity" && (
+        <div className="slide-up" style={{ padding: "16px 24px 100px" }}>
+
+          {/* Notification permission banner */}
+          {notifPermission !== "granted" && (
+            <div style={{ background: "#111", border: "1px solid #89c96a33", borderRadius: 14, padding: "16px", marginBottom: 20 }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: "#f0f0f0", marginBottom: 6 }}>🔔 Enable Notifications</div>
+              <div style={{ fontSize: 13, color: "#666", marginBottom: 14, lineHeight: 1.5 }}>
+                Get alerted on your lock screen when a friend posts a tee time. You must open this app from your Home Screen icon (not Safari) for this to work on iPhone.
+              </div>
+              {notifPermission === "denied" ? (
+                <div style={{ fontSize: 12, color: "#c96a6a", lineHeight: 1.5 }}>
+                  Notifications are blocked. To fix: go to your iPhone Settings → Safari → scroll to this site → allow Notifications.
+                </div>
+              ) : (
+                <button onClick={requestNotifPermission}
+                  style={{ background: "#89c96a", color: "#0a0a0a", border: "none", borderRadius: 10, padding: "12px 20px", fontWeight: 700, fontSize: 14, cursor: "pointer", width: "100%" }}>
+                  Allow Notifications
+                </button>
+              )}
+            </div>
+          )}
+
+          {notifPermission === "granted" && (
+            <div style={{ background: "#111", border: "1px solid #1c3322", borderRadius: 12, padding: "12px 16px", marginBottom: 20, display: "flex", alignItems: "center", gap: 10 }}>
+              <span style={{ fontSize: 18 }}>✅</span>
+              <div style={{ fontSize: 13, color: "#89c96a" }}>Notifications are enabled</div>
+            </div>
+          )}
+
+          {/* Inbound requests section */}
+          <div style={{ fontSize: 11, letterSpacing: 2, color: "#444", textTransform: "uppercase", fontFamily: "'DM Mono', monospace", marginBottom: 12 }}>Inbound Requests</div>
+
+          {inbound.length === 0 ? (
+            <div style={{ textAlign: "center", padding: "40px 0" }}>
+              <div style={{ fontSize: 32, marginBottom: 12 }}>📭</div>
+              <div style={{ fontSize: 14, color: "#444" }}>No requests from friends yet</div>
+              <div style={{ fontSize: 12, color: "#333", marginTop: 6, lineHeight: 1.5 }}>When a friend posts a tee time,{`\n`}it will appear here</div>
+            </div>
+          ) : (
+            inbound.map(inv => {
+              const dateStr = new Date(inv.date).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+              return (
+                <div key={inv.id} className="fade-in" style={{ background: "#111", border: `1px solid ${inv.myStatus === "yes" ? "#89c96a33" : "#1a2a30"}`, borderRadius: 14, padding: "16px", marginBottom: 12 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+                    <div style={{ width: 38, height: 38, borderRadius: "50%", background: "#1a2a30", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 15, color: "#6a9cc9", border: "1px solid #1e3040", flexShrink: 0 }}>
+                      {inv.from[0].toUpperCase()}
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 600, fontSize: 14, color: "#f0f0f0" }}>{inv.from} wants to play</div>
+                      <div style={{ fontSize: 11, color: "#555", marginTop: 2 }}>{dateStr}{inv.mode === "specific" ? ` · ${inv.time}` : ` · ${inv.timeWindowLabel}`}</div>
+                    </div>
+                    {inv.myStatus && (
+                      <div style={{ fontSize: 11, fontFamily: "'DM Mono', monospace", color: inv.myStatus === "yes" ? "#89c96a" : "#555", background: inv.myStatus === "yes" ? "#1c2e18" : "#151515", border: `1px solid ${inv.myStatus === "yes" ? "#89c96a33" : "#222"}`, borderRadius: 6, padding: "3px 8px", flexShrink: 0 }}>
+                        {inv.myStatus === "yes" ? "You\'re in" : "Declined"}
+                      </div>
+                    )}
+                  </div>
+
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: inv.myStatus ? 0 : 12 }}>
+                    {inv.mode === "specific" && <Stat icon="⛳" label="Course" value={inv.course} />}
+                    {inv.mode === "open" && <Stat icon="📍" label="Max Dist" value={`${inv.maxDistance} mi`} />}
+                    <Stat icon="👥" label="Need" value={`+${inv.playersNeeded} more`} />
+                  </div>
+
+                  {!inv.myStatus && (
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <button onClick={() => setInbound(prev => prev.map(i => i.id === inv.id ? { ...i, myStatus: "yes", seen: true } : i))}
+                        style={{ flex: 1, background: "#89c96a", color: "#0a0a0a", border: "none", borderRadius: 10, padding: "12px", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>
+                        I'm In 🙌
+                      </button>
+                      <button onClick={() => setInbound(prev => prev.map(i => i.id === inv.id ? { ...i, myStatus: "no", seen: true } : i))}
+                        style={{ flex: 1, background: "#151515", color: "#666", border: "1px solid #222", borderRadius: 10, padding: "12px", fontWeight: 500, fontSize: 14, cursor: "pointer" }}>
+                        Can't Make It
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          )}
+        </div>
+      )}
+
+      {/* ── REQUESTS VIEW ── */}
+      {view === "requests" && (
         <div className="slide-up" style={{ padding: "16px 24px 100px" }}>
           {events.length === 0 ? (
             <div style={{ textAlign: "center", marginTop: 60 }}>
@@ -565,20 +572,15 @@ export default function GolfScheduler() {
                         {isSpecific ? "⛳" : "🕐"}
                       </div>
                       <div>
-                        <div style={{ fontWeight: 600, fontSize: 14, color: "#f0f0f0" }}>
-                          {isSpecific ? ev.course : "Open Invite"}
-                        </div>
-                        <div style={{ fontSize: 11, color: "#555", marginTop: 2 }}>
-                          {dateStr}{isSpecific ? ` · ${ev.time}` : ` · ${ev.timeWindowLabel}`}
-                        </div>
+                        <div style={{ fontWeight: 600, fontSize: 14, color: "#f0f0f0" }}>{isSpecific ? ev.course : "Open Invite"}</div>
+                        <div style={{ fontSize: 11, color: "#555", marginTop: 2 }}>{dateStr}{isSpecific ? ` · ${ev.time}` : ` · ${ev.timeWindowLabel}`}</div>
                       </div>
                     </div>
                     <div style={{ flexShrink: 0, marginLeft: 8 }}>
                       <div style={{ fontSize: 10, fontFamily: "'DM Mono', monospace", background: "#1c2e18", border: "1px solid #89c96a33", borderRadius: 6, padding: "3px 8px", color: "#89c96a" }}>sent</div>
                     </div>
                   </div>
-
-                  <div style={{ display: "grid", gridTemplateColumns: isSpecific ? "1fr 1fr" : "1fr 1fr 1fr", gap: 8 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                     {isSpecific && <Stat icon="🕐" label="Tee Time" value={ev.time} />}
                     {!isSpecific && <Stat icon="📍" label="Max Dist" value={`${ev.maxDistance} mi`} />}
                     <Stat icon="👥" label="Need" value={`+${ev.playersNeeded} more`} />
@@ -595,13 +597,15 @@ export default function GolfScheduler() {
       <div style={{ position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)", width: "100%", maxWidth: 480, background: "#0d0d0d", borderTop: "1px solid #1a1a1a", display: "flex", padding: "10px 0 20px" }}>
         {[
           { id: "calendar", icon: "📆", label: "Calendar" },
-          { id: "inbox", icon: "📬", label: "Requests" },
+          { id: "activity", icon: "🔔", label: "Activity", badge: newActivityCount },
+          { id: "requests", icon: "📤", label: "Requests", badge: events.length },
         ].map(tab => (
-          <button key={tab.id} className="tab-btn" onClick={() => setView(tab.id)} style={{ flex: 1, background: "none", border: "none", cursor: "pointer", color: view === tab.id ? "#89c96a" : "#444", fontSize: 11, fontFamily: "'DM Sans', sans-serif", display: "flex", flexDirection: "column", alignItems: "center", gap: 4, transition: "color 0.15s" }}>
+          <button key={tab.id} className="tab-btn" onClick={() => { setView(tab.id); if (tab.id === "activity") setInbound(prev => prev.map(i => ({ ...i, seen: true }))); }}
+            style={{ flex: 1, background: "none", border: "none", cursor: "pointer", color: view === tab.id ? "#89c96a" : "#444", fontSize: 11, fontFamily: "'DM Sans', sans-serif", display: "flex", flexDirection: "column", alignItems: "center", gap: 4, position: "relative", transition: "color 0.15s" }}>
             <span style={{ fontSize: 20 }}>{tab.icon}</span>
             <span style={{ letterSpacing: 0.5 }}>{tab.label}</span>
-            {tab.id === "inbox" && pendingInvites.length > 0 && (
-              <div style={{ position: "absolute", top: 8, width: 8, height: 8, borderRadius: "50%", background: "#89c96a" }} />
+            {tab.badge > 0 && (
+              <div style={{ position: "absolute", top: 6, right: "calc(50% - 16px)", background: "#89c96a", color: "#0a0a0a", borderRadius: "50%", fontSize: 9, fontWeight: 700, width: 16, height: 16, display: "flex", alignItems: "center", justifyContent: "center" }}>{tab.badge}</div>
             )}
           </button>
         ))}
