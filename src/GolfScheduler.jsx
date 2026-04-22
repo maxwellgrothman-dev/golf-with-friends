@@ -149,6 +149,8 @@ function AppShell({ username, onLogout }) {
     });
   }
 
+  const [rsvps, setRsvps] = useState({}); // { requestId: [{ username, status }] }
+
   // ── Load all requests on mount, then poll every 10s ──────
   useEffect(() => {
     loadRequests();
@@ -158,17 +160,34 @@ function AppShell({ username, onLogout }) {
 
   async function loadRequests() {
     try {
-      const res = await sbFetch("tee_requests?order=created_at.desc&limit=50");
-      if (!res.ok) return;
-      const rows = await res.json();
+      const [reqRes, rsvpRes] = await Promise.all([
+        sbFetch("tee_requests?order=created_at.desc&limit=50"),
+        sbFetch("rsvps?select=request_id,username,status&order=created_at.asc"),
+      ]);
+      if (!reqRes.ok) return;
+      const rows = await reqRes.json();
+      const rsvpRows = rsvpRes.ok ? await rsvpRes.json() : [];
+
+      // Build rsvp map: { requestId: [{ username, status }] }
+      const rsvpMap = {};
+      rsvpRows.forEach(r => {
+        if (!rsvpMap[r.request_id]) rsvpMap[r.request_id] = [];
+        rsvpMap[r.request_id].push({ username: r.username, status: r.status });
+      });
+      setRsvps(rsvpMap);
+
       const mine = rows.filter(r => r.creator_name === username).map(dbRowToEvent);
       const others = rows.filter(r => r.creator_name !== username).map(dbRowToEvent);
       setEvents(mine);
       setInbound(prev => {
-        // preserve seen/myStatus from previous state
         return others.map(o => {
           const existing = prev.find(p => p.id === o.id);
-          return existing ? { ...o, seen: existing.seen, myStatus: existing.myStatus } : o;
+          const myRsvp = rsvpMap[o.id]?.find(r => r.username === username);
+          return {
+            ...o,
+            seen: existing?.seen || false,
+            myStatus: myRsvp?.status || existing?.myStatus || null,
+          };
         });
       });
     } catch (e) {
@@ -369,6 +388,53 @@ function AppShell({ username, onLogout }) {
   };
 
   const newActivityCount = inbound.filter(i => !i.seen).length;
+
+  async function handleRsvp(inv, status) {
+    // Optimistic UI update
+    setInbound(prev => prev.map(i => i.id === inv.id ? { ...i, myStatus: status, seen: true } : i));
+    if (status === "yes") {
+      setRsvps(prev => {
+        const existing = prev[inv.id] || [];
+        const without = existing.filter(r => r.username !== username);
+        return { ...prev, [inv.id]: [...without, { username, status: "yes" }] };
+      });
+    }
+
+    try {
+      // Save RSVP to Supabase
+      await sbFetch("rsvps", {
+        method: "POST",
+        prefer: "resolution=merge-duplicates",
+        body: JSON.stringify({ request_id: inv.id, username, status }),
+      });
+
+      if (status === "yes") {
+        // Calculate spots left after this RSVP
+        const currentRsvps = (rsvps[inv.id] || []).filter(r => r.status === "yes");
+        const spotsLeft = Math.max(0, inv.playersNeeded - currentRsvps.length - 1);
+        const allPlayers = [inv.from, ...currentRsvps.map(r => r.username), username];
+
+        // Fire notification to requester (and other players)
+        await fetch("/api/notify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            type: "rsvp_yes",
+            senderUsername: username,
+            rsvp: {
+              joinerUsername: username,
+              requesterUsername: inv.from,
+              spotsLeft,
+              allPlayerUsernames: allPlayers,
+              eventSummary: inv.mode === "specific" ? inv.course : inv.timeWindowLabel,
+            },
+          }),
+        });
+      }
+    } catch (err) {
+      console.error("RSVP save failed:", err);
+    }
+  }
 
   // ── Weather ───────────────────────────────────────────────
   const [weather, setWeather] = useState(null);
@@ -685,19 +751,35 @@ function AppShell({ username, onLogout }) {
                     )}
                   </div>
 
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: inv.myStatus ? 0 : 12 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 }}>
                     {inv.mode === "specific" && <Stat icon="⛳" label="Course" value={inv.course} />}
                     {inv.mode === "open" && <Stat icon="📍" label="Max Dist" value={`${inv.maxDistance} mi`} />}
-                    <Stat icon="👥" label="Need" value={`+${inv.playersNeeded} more`} />
+                    {(() => {
+                      const yesRsvps = (rsvps[inv.id] || []).filter(r => r.status === "yes");
+                      const spotsLeft = inv.playersNeeded - yesRsvps.length;
+                      return <Stat icon="👥" label="Spots Left" value={spotsLeft > 0 ? `${spotsLeft} of ${inv.playersNeeded}` : "Full 🎉"} />;
+                    })()}
                   </div>
+                  {/* Roster */}
+                  {(rsvps[inv.id] || []).filter(r => r.status === "yes").length > 0 && (
+                    <div style={{ marginBottom: 10 }}>
+                      <div style={{ fontSize: 10, color: "#444", fontFamily: "'DM Mono', monospace", letterSpacing: 1, textTransform: "uppercase", marginBottom: 6 }}>Who's in</div>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                        <div style={{ background: "#1c2e18", border: "1px solid #89c96a33", borderRadius: 20, padding: "4px 10px", fontSize: 12, color: "#89c96a" }}>{inv.from} (host)</div>
+                        {(rsvps[inv.id] || []).filter(r => r.status === "yes").map(r => (
+                          <div key={r.username} style={{ background: "#1a2a30", border: "1px solid #6a9cc933", borderRadius: 20, padding: "4px 10px", fontSize: 12, color: "#6a9cc9" }}>{r.username}</div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   {!inv.myStatus && (
-                    <div style={{ display: "flex", gap: 8 }}>
-                      <button onClick={() => setInbound(prev => prev.map(i => i.id === inv.id ? { ...i, myStatus: "yes", seen: true } : i))}
+                    <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+                      <button onClick={() => handleRsvp(inv, "yes")}
                         style={{ flex: 1, background: "#89c96a", color: "#0a0a0a", border: "none", borderRadius: 10, padding: "12px", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>
                         I'm In 🙌
                       </button>
-                      <button onClick={() => setInbound(prev => prev.map(i => i.id === inv.id ? { ...i, myStatus: "no", seen: true } : i))}
+                      <button onClick={() => handleRsvp(inv, "no")}
                         style={{ flex: 1, background: "#151515", color: "#666", border: "1px solid #222", borderRadius: 10, padding: "12px", fontWeight: 500, fontSize: 14, cursor: "pointer" }}>
                         Can't Make It
                       </button>
@@ -742,9 +824,25 @@ function AppShell({ username, onLogout }) {
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                     {isSpecific && <Stat icon="🕐" label="Tee Time" value={ev.time} />}
                     {!isSpecific && <Stat icon="📍" label="Max Dist" value={`${ev.maxDistance} mi`} />}
-                    <Stat icon="👥" label="Need" value={`+${ev.playersNeeded} more`} />
+                    {(() => {
+                      const yesRsvps = (rsvps[ev.id] || []).filter(r => r.status === "yes");
+                      const spotsLeft = ev.playersNeeded - yesRsvps.length;
+                      return <Stat icon="👥" label="Spots Left" value={spotsLeft > 0 ? `${spotsLeft} of ${ev.playersNeeded}` : "Full 🎉"} />;
+                    })()}
                     <Stat icon="📅" label="Date" value={dateStr} />
                   </div>
+                  {/* Roster */}
+                  {(rsvps[ev.id] || []).filter(r => r.status === "yes").length > 0 && (
+                    <div style={{ marginTop: 10 }}>
+                      <div style={{ fontSize: 10, color: "#444", fontFamily: "'DM Mono', monospace", letterSpacing: 1, textTransform: "uppercase", marginBottom: 6 }}>Who's in</div>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                        <div style={{ background: "#1c2e18", border: "1px solid #89c96a33", borderRadius: 20, padding: "4px 10px", fontSize: 12, color: "#89c96a" }}>You (host)</div>
+                        {(rsvps[ev.id] || []).filter(r => r.status === "yes").map(r => (
+                          <div key={r.username} style={{ background: "#1a2a30", border: "1px solid #6a9cc933", borderRadius: 20, padding: "4px 10px", fontSize: 12, color: "#6a9cc9" }}>{r.username}</div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               );
             })
