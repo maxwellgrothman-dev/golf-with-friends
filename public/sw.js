@@ -1,5 +1,5 @@
 // Golf With Friends — Service Worker
-const CACHE_NAME = "golf-v1";
+const CACHE_NAME = "golf-v2";
 const STATIC_ASSETS = ["/", "/index.html", "/manifest.json"];
 
 self.addEventListener("install", (e) => {
@@ -31,29 +31,42 @@ self.addEventListener("fetch", (e) => {
   );
 });
 
+// ── Push: always show as system notification ──────────────────
+// requireInteraction keeps it on screen until dismissed
+// This fires even when the app is closed or phone is locked
 self.addEventListener("push", (e) => {
   const data = e.data?.json() ?? {};
+
   const title = data.title ?? "Golf With Friends";
   const options = {
     body: data.body ?? "Someone wants to play!",
     icon: "/icon-192.png",
-    badge: "/badge-72.png",
+    badge: "/icon-192.png",
     tag: data.tag ?? "golf-invite",
     renotify: true,
-    vibrate: [200, 100, 200],
+    requireInteraction: true,        // stays on screen — critical for iOS lock screen
+    silent: false,                   // allow sound/vibration
+    vibrate: [200, 100, 200, 100],
     data: { url: data.url ?? "/" },
     actions: [
-      { action: "view", title: "View Request" },
+      { action: "view", title: "View" },
       { action: "dismiss", title: "Dismiss" },
     ],
   };
-  e.waitUntil(self.registration.showNotification(title, options));
+
+  // waitUntil ensures the notification shows even if SW was just woken up
+  e.waitUntil(
+    self.registration.showNotification(title, options)
+  );
 });
 
+// ── Notification click: open or focus the app ─────────────────
 self.addEventListener("notificationclick", (e) => {
   e.notification.close();
   if (e.action === "dismiss") return;
+
   const target = e.notification.data?.url ?? "/";
+
   e.waitUntil(
     clients
       .matchAll({ type: "window", includeUncontrolled: true })
