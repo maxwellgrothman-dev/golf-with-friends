@@ -253,25 +253,41 @@ function AppShell({ username, onLogout }) {
     setTimeout(() => setNotification(null), 3000);
   };
 
+  // ── Push subscribe/resubscribe ──────────────────────────
+  async function subscribePush() {
+    if (!("serviceWorker" in navigator) || !VAPID_KEY) return;
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      // Check if already subscribed
+      let sub = await reg.pushManager.getSubscription();
+      if (!sub) {
+        // Not subscribed — subscribe fresh
+        sub = await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(VAPID_KEY),
+        });
+      }
+      // Always re-save to Supabase in case it changed or was lost
+      await savePushSubscription(sub);
+    } catch (err) {
+      console.error("Push subscribe error:", err);
+    }
+  }
+
+  // On mount: if permission already granted, auto-resubscribe to refresh stale sub
+  useEffect(() => {
+    if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+      subscribePush();
+    }
+  }, [username]);
+
   async function requestNotifPermission() {
     if (typeof Notification === "undefined") return;
     const result = await Notification.requestPermission();
     setNotifPermission(result);
     if (result === "granted") {
       showNotification("Notifications enabled! 🔔");
-      // Subscribe to push and save to Supabase
-      try {
-        if ("serviceWorker" in navigator && VAPID_KEY) {
-          const reg = await navigator.serviceWorker.ready;
-          const sub = await reg.pushManager.subscribe({
-            userVisibleOnly: true,
-            applicationServerKey: urlBase64ToUint8Array(VAPID_KEY),
-          });
-          await savePushSubscription(sub);
-        }
-      } catch (err) {
-        console.error("Push subscribe error:", err);
-      }
+      await subscribePush();
     }
   }
 
@@ -387,6 +403,29 @@ function AppShell({ username, onLogout }) {
     }
   };
 
+  const [cancelConfirm, setCancelConfirm] = useState(null); // id of event pending cancel
+
+  async function handleCancelRequest(evId) {
+    if (cancelConfirm !== evId) {
+      // First tap: show confirm state
+      setCancelConfirm(evId);
+      setTimeout(() => setCancelConfirm(null), 3000); // auto-dismiss after 3s
+      return;
+    }
+    // Second tap: actually cancel
+    setCancelConfirm(null);
+    setEvents(prev => prev.filter(e => e.id !== evId));
+    try {
+      await sbFetch(`tee_requests?id=eq.${evId}`, { method: "DELETE" });
+      // Also delete associated rsvps (handled by DB cascade, but clean up local state)
+      setRsvps(prev => { const n = { ...prev }; delete n[evId]; return n; });
+      showNotification("Request cancelled.");
+    } catch (err) {
+      console.error("Cancel failed:", err);
+      showNotification("Failed to cancel — try again");
+    }
+  }
+
   const newActivityCount = inbound.filter(i => !i.seen).length;
 
   async function handleRsvp(inv, status) {
@@ -441,48 +480,99 @@ function AppShell({ username, onLogout }) {
   const [dailyForecast, setDailyForecast] = useState({});
 
   useEffect(() => {
-    fetch("https://wttr.in/Chicago?format=j1")
-      .then(r => { if (!r.ok) throw new Error(); return r.json(); })
+    // Helper: seeded fallback so UI always shows something
+    function seededFallback() {
+      const monthHighs = [34,38,48,60,70,80,84,82,74,62,49,37];
+      const monthLows  = [20,23,32,42,52,62,67,65,57,46,35,24];
+      const m = today.getMonth();
+      function sr(seed) { let x = Math.sin(seed+1)*10000; return x-Math.floor(x); }
+      const daily = {};
+      for (let i = 0; i < 14; i++) {
+        const d = new Date(today); d.setDate(today.getDate()+i);
+        const seed = d.getFullYear()*10000+(d.getMonth()+1)*100+d.getDate();
+        const high = Math.round(monthHighs[m]+(sr(seed)-0.5)*16);
+        const wind = Math.round(5+sr(seed+13)*22);
+        const precip = Math.round(sr(seed+19)*75);
+        const code = precip>60?61:precip>40?80:precip>20?3:sr(seed+3)>0.5?1:0;
+        const mm = String(d.getMonth()+1).padStart(2,"0");
+        const dd = String(d.getDate()).padStart(2,"0");
+        daily[`${d.getFullYear()}-${mm}-${dd}`] = { high, low: Math.round(monthLows[m]+(sr(seed+7)-0.5)*10), wind, code, precipChance: precip };
+        if (i===0) setWeather({ temp: high, feelsLike: high-3, wind, windDir: Math.round(sr(seed+5)*360), precipChance: precip, code });
+      }
+      setDailyForecast(daily);
+    }
+
+    // Primary: Open-Meteo — 14-day forecast, CORS-open, no API key needed
+    fetch("https://api.open-meteo.com/v1/forecast?latitude=41.8781&longitude=-87.6298" +
+      "&current=temperature_2m,apparent_temperature,weathercode,windspeed_10m,winddirection_10m,precipitation_probability" +
+      "&daily=temperature_2m_max,temperature_2m_min,weathercode,windspeed_10m_max,precipitation_probability_max" +
+      "&wind_speed_unit=mph&temperature_unit=fahrenheit&timezone=America%2FChicago&forecast_days=14")
+      .then(r => { if (!r.ok) throw new Error("open-meteo failed"); return r.json(); })
       .then(data => {
-        const cur = data.current_condition[0];
-        const desc = cur.weatherDesc[0]?.value || "";
-        const wmoCode = desc.toLowerCase().includes("thunder") ? 95
-          : desc.toLowerCase().includes("snow") ? 71
-          : desc.toLowerCase().includes("rain") || desc.toLowerCase().includes("drizzle") ? 61
-          : desc.toLowerCase().includes("overcast") || desc.toLowerCase().includes("cloudy") ? 3
-          : desc.toLowerCase().includes("partly") ? 2
-          : desc.toLowerCase().includes("fog") ? 45 : 0;
-        setWeather({ temp: parseInt(cur.temp_F), feelsLike: parseInt(cur.FeelsLikeF), wind: parseInt(cur.windspeedMiles), windDir: parseInt(cur.winddirDegree), precipChance: parseInt(cur.humidity), code: wmoCode, desc });
+        const c = data.current;
+        setWeather({
+          temp: Math.round(c.temperature_2m),
+          feelsLike: Math.round(c.apparent_temperature),
+          wind: Math.round(c.windspeed_10m),
+          windDir: Math.round(c.winddirection_10m),
+          precipChance: c.precipitation_probability ?? 0,
+          code: c.weathercode,
+        });
         const daily = {};
-        (data.weather || []).forEach(day => {
-          const hours = day.hourly || [];
-          const avgWind = hours.length ? Math.round(hours.reduce((s,h) => s+parseInt(h.windspeedMiles),0)/hours.length) : 10;
-          const maxPrecip = Math.max(...hours.map(h => parseInt(h.chanceofrain||0)));
-          const dayDesc = day.hourly?.[4]?.weatherDesc?.[0]?.value || "";
-          const dayCode = dayDesc.toLowerCase().includes("thunder") ? 95 : dayDesc.toLowerCase().includes("snow") ? 71 : dayDesc.toLowerCase().includes("rain") || dayDesc.toLowerCase().includes("drizzle") ? 61 : dayDesc.toLowerCase().includes("overcast") || dayDesc.toLowerCase().includes("cloudy") ? 3 : dayDesc.toLowerCase().includes("partly") ? 2 : 0;
-          daily[day.date] = { high: parseInt(day.maxtempF), low: parseInt(day.mintempF), wind: avgWind, code: dayCode, precipChance: maxPrecip };
+        (data.daily?.time || []).forEach((dateStr, i) => {
+          daily[dateStr] = {
+            high: Math.round(data.daily.temperature_2m_max[i]),
+            low: Math.round(data.daily.temperature_2m_min[i]),
+            wind: Math.round(data.daily.windspeed_10m_max[i]),
+            code: data.daily.weathercode[i],
+            precipChance: data.daily.precipitation_probability_max[i] ?? 0,
+          };
         });
         setDailyForecast(daily);
       })
       .catch(() => {
-        const monthHighs = [34,38,48,60,70,80,84,82,74,62,49,37];
-        const monthLows  = [20,23,32,42,52,62,67,65,57,46,35,24];
-        const m = today.getMonth();
-        function sr(seed) { let x = Math.sin(seed+1)*10000; return x-Math.floor(x); }
-        const daily = {};
-        for (let i = 0; i < 14; i++) {
-          const d = new Date(today); d.setDate(today.getDate()+i);
-          const seed = d.getFullYear()*10000+(d.getMonth()+1)*100+d.getDate();
-          const high = Math.round(monthHighs[m]+(sr(seed)-0.5)*16);
-          const wind = Math.round(5+sr(seed+13)*22);
-          const precip = Math.round(sr(seed+19)*75);
-          const code = precip>60?61:precip>40?80:precip>20?3:sr(seed+3)>0.5?1:0;
-          const mm = String(d.getMonth()+1).padStart(2,"0");
-          const dd = String(d.getDate()).padStart(2,"0");
-          daily[`${d.getFullYear()}-${mm}-${dd}`] = { high, low: Math.round(monthLows[m]+(sr(seed+7)-0.5)*10), wind, code, precipChance: precip };
-          if (i===0) setWeather({ temp: high, feelsLike: high-3, wind, windDir: Math.round(sr(seed+5)*360), precipChance: precip, code });
-        }
-        setDailyForecast(daily);
+        // Fallback: wttr.in (3 days real + 11 seeded)
+        fetch("https://wttr.in/Chicago?format=j1")
+          .then(r => { if (!r.ok) throw new Error(); return r.json(); })
+          .then(data => {
+            const cur = data.current_condition[0];
+            const desc = cur.weatherDesc[0]?.value || "";
+            const wmoCode = desc.toLowerCase().includes("thunder") ? 95
+              : desc.toLowerCase().includes("snow") ? 71
+              : desc.toLowerCase().includes("rain") || desc.toLowerCase().includes("drizzle") ? 61
+              : desc.toLowerCase().includes("overcast") || desc.toLowerCase().includes("cloudy") ? 3
+              : desc.toLowerCase().includes("partly") ? 2 : 0;
+            setWeather({ temp: parseInt(cur.temp_F), feelsLike: parseInt(cur.FeelsLikeF), wind: parseInt(cur.windspeedMiles), windDir: parseInt(cur.winddirDegree), precipChance: parseInt(cur.humidity), code: wmoCode });
+            // wttr only has 3 days — fill remaining 11 with seeded data
+            const daily = {};
+            const monthHighs = [34,38,48,60,70,80,84,82,74,62,49,37];
+            const monthLows  = [20,23,32,42,52,62,67,65,57,46,35,24];
+            const m = today.getMonth();
+            function sr(seed) { let x = Math.sin(seed+1)*10000; return x-Math.floor(x); }
+            // First fill seeded for all 14 days
+            for (let i = 0; i < 14; i++) {
+              const d = new Date(today); d.setDate(today.getDate()+i);
+              const seed = d.getFullYear()*10000+(d.getMonth()+1)*100+d.getDate();
+              const high = Math.round(monthHighs[m]+(sr(seed)-0.5)*16);
+              const wind = Math.round(5+sr(seed+13)*22);
+              const precip = Math.round(sr(seed+19)*75);
+              const code = precip>60?61:precip>40?80:precip>20?3:sr(seed+3)>0.5?1:0;
+              const mm = String(d.getMonth()+1).padStart(2,"0");
+              const dd = String(d.getDate()).padStart(2,"0");
+              daily[`${d.getFullYear()}-${mm}-${dd}`] = { high, low: Math.round(monthLows[m]+(sr(seed+7)-0.5)*10), wind, code, precipChance: precip };
+            }
+            // Then overwrite first 3 days with real wttr data
+            (data.weather || []).forEach(day => {
+              const hours = day.hourly || [];
+              const avgWind = hours.length ? Math.round(hours.reduce((s,h) => s+parseInt(h.windspeedMiles),0)/hours.length) : 10;
+              const maxPrecip = Math.max(...hours.map(h => parseInt(h.chanceofrain||0)));
+              const dayDesc = day.hourly?.[4]?.weatherDesc?.[0]?.value || "";
+              const dayCode = dayDesc.toLowerCase().includes("thunder") ? 95 : dayDesc.toLowerCase().includes("snow") ? 71 : dayDesc.toLowerCase().includes("rain") || dayDesc.toLowerCase().includes("drizzle") ? 61 : dayDesc.toLowerCase().includes("overcast") || dayDesc.toLowerCase().includes("cloudy") ? 3 : dayDesc.toLowerCase().includes("partly") ? 2 : 0;
+              daily[day.date] = { high: parseInt(day.maxtempF), low: parseInt(day.mintempF), wind: avgWind, code: dayCode, precipChance: maxPrecip };
+            });
+            setDailyForecast(daily);
+          })
+          .catch(seededFallback);
       });
   }, []);
 
@@ -843,6 +933,14 @@ function AppShell({ username, onLogout }) {
                       </div>
                     </div>
                   )}
+                  {/* Cancel button */}
+                  <div style={{ marginTop: 12, textAlign: "right" }}>
+                    <button
+                      onClick={() => handleCancelRequest(ev.id)}
+                      style={{ background: "none", border: `1px solid ${cancelConfirm === ev.id ? "#c96a6a" : "#2a2a2a"}`, borderRadius: 8, color: cancelConfirm === ev.id ? "#c96a6a" : "#444", fontSize: 12, padding: "6px 14px", cursor: "pointer", fontFamily: "'DM Mono', monospace", transition: "all 0.15s" }}>
+                      {cancelConfirm === ev.id ? "Tap again to confirm" : "Cancel request"}
+                    </button>
+                  </div>
                 </div>
               );
             })
