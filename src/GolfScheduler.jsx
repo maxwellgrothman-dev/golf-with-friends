@@ -153,6 +153,10 @@ function AppShell({ username, onLogout }) {
 
   // ── Load all requests on mount, then poll every 10s ──────
   useEffect(() => {
+    // Clean up any past requests from the database on app open
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,"0")}-${String(today.getDate()).padStart(2,"0")}`;
+    sbFetch(`tee_requests?tee_date=lt.${todayStr}`, { method: "DELETE" }).catch(() => {});
+
     loadRequests();
     const interval = setInterval(loadRequests, 10000);
     return () => clearInterval(interval);
@@ -160,8 +164,10 @@ function AppShell({ username, onLogout }) {
 
   async function loadRequests() {
     try {
+      // Only fetch requests from today onwards — filters out expired rounds
+      const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,"0")}-${String(today.getDate()).padStart(2,"0")}`;
       const [reqRes, rsvpRes] = await Promise.all([
-        sbFetch("tee_requests?order=created_at.desc&limit=50"),
+        sbFetch(`tee_requests?tee_date=gte.${todayStr}&order=tee_date.asc&limit=50`),
         sbFetch("rsvps?select=request_id,username,status&order=created_at.asc"),
       ]);
       if (!reqRes.ok) return;
